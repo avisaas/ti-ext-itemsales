@@ -4,34 +4,38 @@ declare(strict_types=1);
 
 namespace CupNoodles\ItemSales;
 
-use Igniter\System\Classes\BaseExtension;
-use Override;
+use CupNoodles\ItemSales\AviMarketplace\Admin;
+use CupNoodles\ItemSales\AviMarketplace\Setup;
 
-class Extension extends BaseExtension
+class Extension extends UpstreamExtension
 {
-    #[Override]
-    public function registerPermissions(): array
+    private bool $aviMarketplaceGated = false;
+
+    public function __construct($app)
     {
-        return [
-            'CupNoodles.ItemSales.View' => [
-                'description' => 'lang:cupnoodles.itemsales::default.permission_view',
-                'group' => 'igniter.cart::default.text_permission_order_group',
-            ],
-        ];
+        parent::__construct($app);
+
+        $gated = Setup::gated();
+        $this->aviMarketplaceGated = $gated;
+
+        if ($gated) {
+            $this->disabled = true;
+        }
+
+        rescue(fn () => Admin::attach($gated), null, false);
     }
 
-    #[Override]
-    public function registerNavigation(): array
+    public function register(): void
     {
-        return [
-            'itemsales' => [
-                'priority' => 11,
-                'class' => 'itemsales',
-                'icon' => 'fa-chart-bar',
-                'href' => admin_url('cupnoodles/itemsales/item_sales'),
-                'title' => lang('cupnoodles.itemsales::default.side_menu'),
-                'permission' => 'CupNoodles.ItemSales.View',
-            ],
-        ];
+        if (!Setup::withholds($this->aviMarketplaceGated)) {
+            parent::register();
+        }
+    }
+
+    public function boot(): void
+    {
+        if (method_exists(parent::class, 'boot') && !Setup::withholds($this->aviMarketplaceGated)) {
+            parent::boot();
+        }
     }
 }
